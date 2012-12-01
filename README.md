@@ -1,11 +1,16 @@
 log4j-elasticsearch-java-api
 ============================
 
-Using log4j insert log info into ElasticSearch
+Using log4j insert log info into ElasticSearch.
 
-The configuration is simple:
+### Build the lib ###
+<pre><code>
+mvn package
+</code></pre>
 
-### Properties Configuration ###
+Copy log4j-elasticsearch.jar and all lib depend in target/lib to using.
+
+### The configuration is simple Properties Configuration ###
 <pre><code>
 # RootLogger
 log4j.rootLogger=INFO,stdout,elastic
@@ -23,4 +28,18 @@ log4j.appender.stdout.layout.ConversionPattern=%d{ISO8601} %-5p %c{2} (%F:%M(%L)
 
 # ElasticSearch log4j appender for application
 log4j.appender.elastic=com.letfy.log4j.appenders.ElasticSearchClientAppender
+</code></pre>
+
+### The configuration is advance Properties Configuration ###
+<pre><code>
+
+# ElasticSearch log4j appender for application
+log4j.appender.elastic=com.letfy.log4j.appenders.ElasticSearchClientAppender
+log4j.appender.elastic.elasticHost=localhost
+log4j.appender.elastic.elasticPort=9300
+log4j.appender.elastic.ip=127.0.0.1
+log4j.appender.elastic.applicationId=application
+log4j.appender.elastic.clusterName=elasticsearch
+log4j.appender.elastic.elasticIndex=logging-index
+log4j.appender.elastic.elasticType=logging
 </code></pre>
