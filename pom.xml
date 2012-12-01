@@ -4,7 +4,7 @@
 
     <groupId>com.letfy.log4j</groupId>
     <artifactId>log4j-elasticsearch</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.0.0-RELEASE</version>
     <packaging>jar</packaging>
 
     <name>Log4j Elastic Search</name>
