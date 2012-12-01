@@ -239,8 +239,8 @@ public class ElasticSearchClientAppender extends AppenderSkeleton {
         }
 
         protected void writeBasic(Map<String, Object> json, LoggingEvent event) {
-            json.put("ip", getIp());
-            json.put("application-id", getApplicationId());
+            json.put("applicationIp", getIp());
+            json.put("applicationName", getApplicationId());
             json.put("level", event.getLevel().toString());
             json.put("timestamp", event.getTimeStamp());
             json.put("message", event.getMessage());
