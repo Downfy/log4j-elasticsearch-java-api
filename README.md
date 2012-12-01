@@ -32,6 +32,7 @@ log4j.appender.elastic=com.letfy.log4j.appenders.ElasticSearchClientAppender
 
 ### The configuration is advance Properties Configuration ###
 <pre><code>
+....
 
 # ElasticSearch log4j appender for application
 log4j.appender.elastic=com.letfy.log4j.appenders.ElasticSearchClientAppender
