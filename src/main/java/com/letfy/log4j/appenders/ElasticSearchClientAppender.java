@@ -15,6 +15,10 @@
  */
 package com.letfy.log4j.appenders;
 
+import io.searchbox.client.JestClient;
+import io.searchbox.client.JestClientFactory;
+import io.searchbox.client.config.ClientConfig;
+import io.searchbox.core.Index;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.Writer;
@@ -27,29 +31,22 @@ import java.util.concurrent.Executors;
 import org.apache.log4j.AppenderSkeleton;
 import org.apache.log4j.spi.LoggingEvent;
 import org.apache.log4j.spi.ThrowableInformation;
-import org.elasticsearch.action.index.IndexRequestBuilder;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.client.transport.TransportClient;
-import org.elasticsearch.common.settings.ImmutableSettings;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.transport.InetSocketTransportAddress;
 
 /**
  * Using ElasticSearch store LoggingEvent for insert the document log4j.
  *
- * @author Tran Anh Tuan <tuanta@letfy.com>
+ * @author Tran Anh Tuan <tk1cntt@gmail.com>
  */
 public class ElasticSearchClientAppender extends AppenderSkeleton {
 
     private ExecutorService threadPool = Executors.newSingleThreadExecutor();
-    private Client client;
-    private String applicationId = "application";
-    private String ip = "127.0.0.1";
+    private JestClient client;
+    private String applicationName = "application";
+    private String hostName = "127.0.0.1";
     private String clusterName = "elasticsearch";
     private String elasticIndex = "logging-index";
     private String elasticType = "logging";
-    private String elasticHost = "localhost";
-    private int elasticPort = 9300;
+    private String elasticHost = "http://localhost:9200";
 
     /**
      * Submits LoggingEvent for insert the document if it reaches severity
@@ -72,13 +69,16 @@ public class ElasticSearchClientAppender extends AppenderSkeleton {
     @Override
     public void activateOptions() {
         // Need to do this if the cluster name is changed, probably need to set this and sniff the cluster
-        Settings settings = ImmutableSettings.settingsBuilder()
-                .put("cluster.name", clusterName).build();
-        client = new TransportClient(settings)
-                .addTransportAddress(new InetSocketTransportAddress(elasticHost, elasticPort));
+        try {
+            // Configuration
+            ClientConfig clientConfig = new ClientConfig.Builder(elasticHost).multiThreaded(true).build();
 
-        //node = nodeBuilder().client(true).node();
-        //client = node.client();
+            // Construct a new Jest client according to configuration via factory
+            JestClientFactory factory = new JestClientFactory();
+            factory.setClientConfig(clientConfig);
+            client = factory.getObject();
+        } catch (Exception ex) {
+        }
 
         super.activateOptions();
     }
@@ -99,24 +99,6 @@ public class ElasticSearchClientAppender extends AppenderSkeleton {
      */
     public void setElasticHost(String elasticHost) {
         this.elasticHost = elasticHost;
-    }
-
-    /**
-     * Elastic Search port.
-     *
-     * @return
-     */
-    public int getElasticPort() {
-        return elasticPort;
-    }
-
-    /**
-     * Elastic Search port.
-     *
-     * @param elasticPort
-     */
-    public void setElasticPort(int elasticPort) {
-        this.elasticPort = elasticPort;
     }
 
     /**
@@ -160,8 +142,8 @@ public class ElasticSearchClientAppender extends AppenderSkeleton {
      *
      * @return
      */
-    public String getApplicationId() {
-        return applicationId;
+    public String getApplicationName() {
+        return applicationName;
     }
 
     /**
@@ -169,26 +151,26 @@ public class ElasticSearchClientAppender extends AppenderSkeleton {
      *
      * @param applicationId
      */
-    public void setApplicationId(String applicationId) {
-        this.applicationId = applicationId;
+    public void setApplicationName(String applicationName) {
+        this.applicationName = applicationName;
     }
 
     /**
-     * IP address application run.
+     * Host name application run.
      *
      * @return
      */
-    public String getIp() {
-        return ip;
+    public String getHostName() {
+        return hostName;
     }
 
     /**
-     * IP address application run.
+     * Host name application run.
      *
      * @param ip
      */
-    public void setIp(String ip) {
-        this.ip = ip;
+    public void setHostName(String hostName) {
+        this.hostName = hostName;
     }
 
     /**
@@ -214,7 +196,7 @@ public class ElasticSearchClientAppender extends AppenderSkeleton {
      */
     @Override
     public void close() {
-        client.close();
+        client.shutdownClient();
     }
 
     /**
@@ -239,12 +221,12 @@ public class ElasticSearchClientAppender extends AppenderSkeleton {
         }
 
         protected void writeBasic(Map<String, Object> json, LoggingEvent event) {
-            json.put("applicationIp", getIp());
-            json.put("applicationName", getApplicationId());
-            json.put("level", event.getLevel().toString());
+            json.put("hostName", getHostName());
+            json.put("applicationName", getApplicationName());
             json.put("timestamp", event.getTimeStamp());
-            json.put("message", event.getMessage());
             json.put("logger", event.getLoggerName());
+            json.put("level", event.getLevel().toString());
+            json.put("message", event.getMessage());
         }
 
         protected void writeThrowable(Map<String, Object> json, LoggingEvent event) {
@@ -273,16 +255,17 @@ public class ElasticSearchClientAppender extends AppenderSkeleton {
         @Override
         public LoggingEvent call() throws Exception {
             try {
-                // Set up the es index response 
-                String uuid = UUID.randomUUID().toString();
-                IndexRequestBuilder response = client.prepareIndex(getElasticIndex(), getElasticType(), uuid);
-                Map<String, Object> data = new HashMap<String, Object>();
+                if (client != null) {
+                    // Set up the es index response 
+                    String uuid = UUID.randomUUID().toString();
+                    Map<String, Object> data = new HashMap<String, Object>();
 
-                writeBasic(data, loggingEvent);
-                writeThrowable(data, loggingEvent);
-                // insert the document into elasticsearch
-                response.setSource(data);
-                response.execute();
+                    writeBasic(data, loggingEvent);
+                    writeThrowable(data, loggingEvent);
+                    // insert the document into elasticsearch
+                    Index index = new Index.Builder(data).index(getElasticIndex()).type(getElasticType()).id(uuid).build();
+                    client.execute(index);
+                }
             } catch (Exception ex) {
             }
             return loggingEvent;
