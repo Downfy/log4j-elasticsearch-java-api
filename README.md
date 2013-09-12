@@ -36,8 +36,7 @@ log4j.appender.elastic=com.letfy.log4j.appenders.ElasticSearchClientAppender
 
 # ElasticSearch log4j appender for application
 log4j.appender.elastic=com.letfy.log4j.appenders.ElasticSearchClientAppender
-log4j.appender.elastic.elasticHost=localhost
-log4j.appender.elastic.elasticPort=9300
+log4j.appender.elastic.elasticHost=http://localhost:9200
 log4j.appender.elastic.ip=127.0.0.1
 log4j.appender.elastic.applicationId=application
 log4j.appender.elastic.clusterName=elasticsearch
