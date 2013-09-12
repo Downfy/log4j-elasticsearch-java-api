@@ -43,7 +43,6 @@ public class ElasticSearchClientAppender extends AppenderSkeleton {
     private JestClient client;
     private String applicationName = "application";
     private String hostName = "127.0.0.1";
-    private String clusterName = "elasticsearch";
     private String elasticIndex = "logging-index";
     private String elasticType = "logging";
     private String elasticHost = "http://localhost:9200";
@@ -171,24 +170,6 @@ public class ElasticSearchClientAppender extends AppenderSkeleton {
      */
     public void setHostName(String hostName) {
         this.hostName = hostName;
-    }
-
-    /**
-     * Elastic Search name of cluster.
-     *
-     * @return
-     */
-    public String getClusterName() {
-        return clusterName;
-    }
-
-    /**
-     * Elastic Search name of cluster.
-     *
-     * @param clusterName
-     */
-    public void setClusterName(String clusterName) {
-        this.clusterName = clusterName;
     }
 
     /**
