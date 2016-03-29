@@ -19,18 +19,24 @@ import io.searchbox.client.JestClient;
 import io.searchbox.client.JestClientFactory;
 import io.searchbox.client.config.ClientConfig;
 import io.searchbox.core.Index;
+import org.apache.log4j.AppenderSkeleton;
+import org.apache.log4j.spi.LoggingEvent;
+import org.apache.log4j.spi.ThrowableInformation;
+
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import org.apache.log4j.AppenderSkeleton;
-import org.apache.log4j.spi.LoggingEvent;
-import org.apache.log4j.spi.ThrowableInformation;
 
 /**
  * Using ElasticSearch store LoggingEvent for insert the document log4j.
@@ -42,10 +48,24 @@ public class ElasticSearchClientAppender extends AppenderSkeleton {
     private ExecutorService threadPool = Executors.newSingleThreadExecutor();
     private JestClient client;
     private String applicationName = "application";
-    private String hostName = "127.0.0.1";
-    private String elasticIndex = "logging-index";
+    private String hostName = getInitialHostname();
+    private String elasticIndex = getInitialIndex();
     private String elasticType = "logging";
     private String elasticHost = "http://localhost:9200";
+
+    protected String getInitialHostname() {
+        String host = "localhost";
+        try {
+            host = InetAddress.getLocalHost().getCanonicalHostName();
+        } catch (UnknownHostException ex) {
+        }
+        return host;
+    }
+
+    protected String getInitialIndex() {
+        final LocalDate localDate = new Date().toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+        return String.format("log4j-elastic-%d-%02d", localDate.getYear(), localDate.getMonthValue());
+    }
 
     /**
      * Submits LoggingEvent for insert the document if it reaches severity
@@ -56,6 +76,7 @@ public class ElasticSearchClientAppender extends AppenderSkeleton {
     @Override
     protected void append(LoggingEvent loggingEvent) {
         if (isAsSevereAsThreshold(loggingEvent.getLevel())) {
+            loggingEvent.getMDCCopy();
             threadPool.submit(new AppenderTask(loggingEvent));
         }
     }
@@ -202,12 +223,18 @@ public class ElasticSearchClientAppender extends AppenderSkeleton {
         }
 
         protected void writeBasic(Map<String, Object> json, LoggingEvent event) {
+            json.put("@timestamp", new Date(event.getTimeStamp()).toInstant().toString());
             json.put("hostName", getHostName());
             json.put("applicationName", getApplicationName());
-            json.put("timestamp", event.getTimeStamp());
             json.put("logger", event.getLoggerName());
             json.put("level", event.getLevel().toString());
             json.put("message", event.getMessage());
+        }
+
+        protected void writeMDC(Map<String, Object> json, LoggingEvent event) {
+            for (Object key : event.getProperties().keySet())
+                // key cannot contain '.'
+                json.put(String.format("mdc_%s", key.toString()), event.getProperties().get(key).toString());
         }
 
         protected void writeThrowable(Map<String, Object> json, LoggingEvent event) {
@@ -226,6 +253,7 @@ public class ElasticSearchClientAppender extends AppenderSkeleton {
             return result.toString();
         }
 
+
         /**
          * Method is called by ExecutorService and insert the document into
          * ElasticSearch
@@ -243,6 +271,7 @@ public class ElasticSearchClientAppender extends AppenderSkeleton {
 
                     writeBasic(data, loggingEvent);
                     writeThrowable(data, loggingEvent);
+                    writeMDC(data, loggingEvent);
                     // insert the document into elasticsearch
                     Index index = new Index.Builder(data).index(getElasticIndex()).type(getElasticType()).id(uuid).build();
                     client.execute(index);
